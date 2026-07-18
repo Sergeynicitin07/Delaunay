@@ -39,6 +39,10 @@ public:
     void change_edge(int edge_ab);
     void manage(int p0, int holy_edge);
     void turn_into(double x, double y);
+    double det3x3(double m00, double m01, double m02,
+              double m10, double m11, double m12,
+              double m20, double m21, double m22);
+
     std::vector<Vertex> generateRandomDOTS(int n, int width, int height);
     void build_triangulation(std::vector<Vertex>& points);
 
