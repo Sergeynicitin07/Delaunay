@@ -32,31 +32,41 @@ bool convex (const Vertex& a, const Vertex& b, const Vertex& c) {
 
 
 
+double det3x3(double m00, double m01, double m02,
+              double m10, double m11, double m12,
+              double m20, double m21, double m22) {
+    return m00 * (m11 * m22 - m12 * m21)
+           - m01 * (m10 * m22 - m12 * m20)
+           + m02 * (m10 * m21 - m11 * m20);
+}
+
+
 bool point_in_circle(const Vertex& a, const Vertex& b, const Vertex& c, const Vertex& p) {
-    double az_ = (a.x * a.x) + (a.y * a.y);
-    double bz_ = (b.x * b.x) + (b.y * b.y);
-    double cz_ = (c.x * c.x) + (c.y * c.y);
-    double pz_ = (p.x * p.x) + (p.y * p.y);
+    double sa = a.x * a.x + a.y * a.y;
+    double sb = b.x * b.x + b.y * b.y;
+    double sc = c.x * c.x + c.y * c.y;
+    double sp = p.x * p.x + p.y * p.y;
 
-    double az = az_ - pz_;
-    double ax = a.x - p.x;
-    double ay = a.y - p.y;
+    double m14 = det3x3(sb, b.x, b.y,
+                        sc, c.x, c.y,
+                        sp, p.x, p.y);
 
-    double bz = bz_ - pz_;
-    double bx = b.x - p.x;
-    double by = b.y - p.y;
+    double m24 = det3x3(sa, a.x, a.y,
+                        sc, c.x, c.y,
+                        sp, p.x, p.y);
 
-    double cz = cz_ - pz_;
-    double cx = c.x - p.x;
-    double cy = c.y - p.y;
+    double m34 = det3x3(sa, a.x, a.y,
+                        sb, b.x, b.y,
+                        sp, p.x, p.y);
 
-    double det = az * (bx * cy - cx * by)
-                 - ax * (bz * cy - cz * by)
-                 + ay * (bz * cx - cz * bx);
+    double m44 = det3x3(sa, a.x, a.y,
+                        sb, b.x, b.y,
+                        sc, c.x, c.y);
+
+    double det = -m14 + m24 - m34 + m44;
 
     return det > 0;
 }
-
 
 
 
@@ -276,9 +286,8 @@ void DCEL::change_edge (int edge_ab){
     edges[edge_ad].next = edge_ba;
 
 
-    faces[f_a].inner_comp = edge_ab;
-    faces[f_b].inner_comp = edge_ba;
-
+    faces[f_newA].inner_comp = edge_ab;
+    faces[f_newB].inner_comp = edge_ba;
 
     vertices[a].incident_edge = edge_ad;
     vertices[b].incident_edge = edge_bc;
