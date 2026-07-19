@@ -349,20 +349,3 @@ void DCEL::turn_into (double x, double y) {
     }
 
 }
-
-
-void DCEL::build_triangulation(std::vector<Vertex>& points) {
-    // Инициализируем структуру треугольника
-    bewilder();
-
-    // Создаем копию входного массива точек и выполняем перемешивание
-    std::vector<Vertex> permuted_points = points;
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(permuted_points.begin(), permuted_points.end(), g);
-
-    // Инкрементируем каждую точку по очереди
-    for (const auto& p : permuted_points) {
-        turn_into(p.x, p.y);
-    }
-}
