@@ -75,7 +75,7 @@ int DCEL::addVertex(double x, double y) {
     return vertices.size() - 1;
 }
 
-std::vector<Vertex> DCEL::generateRandomDOTS(int n, int width, int height) {
+std::vector<Vertex> generateRandomDOTS(int n, int width, int height) {
     if (n < 3) return {};
     std::vector<Vertex> dots(n);
     for (int i = 0; i < n; i ++) {
@@ -92,7 +92,7 @@ void DCEL::bewilder () {
 
     // это индекс для первой грани
     int f0 = 0;
-    faces.push_back({0, false, {}, {dot0, dot1, dot2}});
+    faces.push_back({f0});
 
     // то есть мы положили набор в полуреберный вектор
     edges.push_back({dot0, 3,1,2, f0});
@@ -113,17 +113,17 @@ void DCEL::bewilder () {
 
 
 
-int DCEL::locate(const Vertex& p) {
-    if (faces.empty()) return -1;
+int Delaunay::locate(const Vertex& p) {
+    if (history.empty()) return -1;
     int current = 0;
 
-    while (faces[current].isdead) {
+    while (history[current].isdead) {
         bool found_child = false;
 
-        for (int child_idx : faces[current].children) {
-            Vertex a = vertices[faces[child_idx].v[0]];
-            Vertex b = vertices[faces[child_idx].v[1]];
-            Vertex c = vertices[faces[child_idx].v[2]];
+        for (int child_idx : history[current].children) {
+            Vertex a = dcel.vertices[history[child_idx].v[0]];
+            Vertex b = dcel.vertices[history[child_idx].v[1]];
+            Vertex c = dcel.vertices[history[child_idx].v[2]];
 
             if (convex(a, b, p) && convex(c, a, p) && convex(b, c, p)) {
                 current = child_idx;
@@ -133,8 +133,8 @@ int DCEL::locate(const Vertex& p) {
         }
 
         if (!found_child) {
-            if (!faces[current].children.empty()) {
-                current = faces[current].children[0];
+            if (!history[current].children.empty()) {
+                current = history[current].children[0];
             } else {
                 break;
             }
@@ -146,8 +146,6 @@ int DCEL::locate(const Vertex& p) {
 
 
 std::vector<int> DCEL::stun (int face_idx, double x, double y) {
-    // грань, в которую попала точка, мертва
-    faces[face_idx].isdead = true;
     // добавляем в список вершин
     int p = addVertex(x, y);
     // полуребра старого трегольника, куда упала точка
@@ -161,14 +159,13 @@ std::vector<int> DCEL::stun (int face_idx, double x, double y) {
     // создаем новые грани. в качестве индексов возьмем длину массива на данный момент
     // При создании новых граней g0, g1, g2 сразу фиксируем их вершины
     int g0 = faces.size();
-    faces.push_back({edge0, false, {}, {a, b, p}});
+    faces.push_back({edge0});
 
     int g1 = faces.size();
-    faces.push_back({edge1, false, {}, {b, c, p}});
+    faces.push_back({edge1});
 
     int g2 = faces.size();
-    faces.push_back({edge2, false, {}, {c, a, p}});
-    faces[face_idx].children = {g0, g1, g2};
+    faces.push_back({edge2});
 
 
     int edge_pa = edges.size();
@@ -230,21 +227,14 @@ void DCEL::change_edge (int edge_ab){
 
 
     // выпишим грани
-    int f_a = edges[edge_ab].face;
-    int f_b = edges[edge_ba].face;
-
-    faces[f_a].isdead = true;
-    faces[f_b].isdead = true;
 
 
     int f_newA = faces.size();
-    faces.push_back({edge_ab, false, {}, {c, d, b}}); // Треугольник P - D - B
+    faces.push_back({edge_ab}); // Треугольник P - D - B
 
     int f_newB = faces.size();
-    faces.push_back({edge_ba, false, {}, {d, c, a}}); // Треугольник D - P - A
+    faces.push_back({edge_ba}); // Треугольник D - P - A
 
-    faces[f_a].children = {f_newA, f_newB};
-    faces[f_b].children = {f_newA, f_newB};
 
 
     // теперь точка A стала C, а точка B - D
@@ -303,49 +293,102 @@ void DCEL::change_edge (int edge_ab){
 
 
 
-void DCEL::manage (int p0, int holy_edge) {
-    int twinki_pinki = edges[holy_edge].twin;
+void Delaunay::manage (int p0, int holy_edge) {
+    int twinki_pinki = dcel.edges[holy_edge].twin;
 
-    // если мы рассматриваем большой треугольник
-    if (twinki_pinki == -1 || edges[twinki_pinki].face == -1) return;
+    if (twinki_pinki == -1 || dcel.edges[twinki_pinki].face == -1) return;
 
-    int b0 = edges[twinki_pinki].origin;
-    int a0 = edges[edges[twinki_pinki].next].origin;
-    int d0 = edges[edges[twinki_pinki].prev].origin;
-    Vertex a = vertices[a0];
-    Vertex b = vertices[b0];
-    Vertex p = vertices[p0];
-    Vertex d = vertices[d0];
+    int b0 = dcel.edges[twinki_pinki].origin;
+    int a0 = dcel.edges[dcel.edges[twinki_pinki].next].origin;
+    int d0 = dcel.edges[dcel.edges[twinki_pinki].prev].origin;
 
+    Vertex a = dcel.vertices[a0];
+    Vertex b = dcel.vertices[b0];
+    Vertex p = dcel.vertices[p0];
+    Vertex d = dcel.vertices[d0];
 
     if (point_in_circle(b, a, d, p)) {
+        // Запоминаем текущие грани dcel, которые будут анигилированы
+        int f_a = dcel.edges[holy_edge].face;
+        int f_b = dcel.edges[twinki_pinki].face;
 
+        int hist_a = -1, hist_b = -1;
+        for (int i = history.size() - 1; i >= 0; --i) {
+            if (!history[i].isdead) {
+                if (history[i].face0 == f_a) hist_a = i;
+                if (history[i].face0 == f_b) hist_b = i;
+            }
+        }
+        if (hist_a != -1) history[hist_a].isdead = true;
+        if (hist_b != -1) history[hist_b].isdead = true;
 
-        int pr = edges[twinki_pinki].prev;
-        int nx = edges[twinki_pinki].next;
-        change_edge(holy_edge);
-        // сделаем рекурсию для соседей грани и точки p
+        int pr = dcel.edges[twinki_pinki].prev;
+        int nx = dcel.edges[twinki_pinki].next;
+
+        dcel.change_edge(holy_edge);
+
+        int f_newA = dcel.edges[holy_edge].face;
+        int f_newB = dcel.edges[dcel.edges[holy_edge].twin].face;
+        int c0 = dcel.edges[holy_edge].origin;
+
+        int new_hA = history.size(); history.push_back({false, {}, {c0, d0, b0}, f_newA});
+        int new_hB = history.size(); history.push_back({false, {}, {d0, c0, a0}, f_newB});
+
+        if (hist_a != -1) history[hist_a].children = {new_hA, new_hB};
+        if (hist_b != -1) history[hist_b].children = {new_hA, new_hB};
+
         manage(p0, pr);
         manage(p0, nx);
-
     }
+
+
+
+    
 }
 
 
 
-void DCEL::turn_into (double x, double y) {
+void Delaunay::turn_into (double x, double y) {
 
+    // выполняем инициализацию, если только начали
+    if (history.empty()) {
+        dcel.bewilder();
+
+        int f0 = 0;
+        history.push_back({false, {}, {0, 1, 2}, f0});
+    }
 
     Vertex dot = {x, y, -1};
     int face_x = locate(dot);
     if (face_x == -1) return;
 
 
-    std::vector<int> triangle_ = stun(face_x, x, y);
-    // в шоковой функции мы уже добавили p в список
-    int p_ = vertices.size() - 1;
-    for (int edge_h : triangle_) {
-        manage(p_, edge_h);
-    }
+    history[face_x].isdead = true;
+    int dcel_face = history[face_x].face0;
 
+
+
+
+    std::vector<int> new_edges = dcel.stun(dcel_face, x, y);
+
+    int p_ = dcel.vertices.size() - 1;
+    int e0 = new_edges[0], e1 = new_edges[1], e2 = new_edges[2];
+
+    int a = dcel.edges[e0].origin;
+    int b = dcel.edges[e1].origin;
+    int c = dcel.edges[e2].origin;
+
+    int g0 = dcel.edges[e0].face;
+    int g1 = dcel.edges[e1].face;
+    int g2 = dcel.edges[e2].face;
+
+    int h0 = history.size(); history.push_back({false, {}, {a, b, p_}, g0});
+    int h1 = history.size(); history.push_back({false, {}, {b, c, p_}, g1});
+    int h2 = history.size(); history.push_back({false, {}, {c, a, p_}, g2});
+
+    history[face_x].children = {h0, h1, h2};
+
+    manage(p_, e0);
+    manage(p_, e1);
+    manage(p_, e2);
 }
