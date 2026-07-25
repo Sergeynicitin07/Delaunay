@@ -6,7 +6,6 @@ double pseudoscalar(const Vertex& a, const Vertex& b) {
     return (a.x * b.y) - (a.y * b.x);
 }
 
-
 // точки на плоскости a, b, c
 // < 0 => поворот направо
 // > 0 => поворот налево
@@ -24,6 +23,8 @@ int orientation (const Vertex& a, const Vertex& b, const Vertex& c) {
     return 0;
 
 }
+
+
 
 
 bool convex (const Vertex& a, const Vertex& b, const Vertex& c) {
@@ -86,9 +87,10 @@ std::vector<Vertex> generateRandomDOTS(int n, int width, int height) {
 }
 
 void DCEL::bewilder () {
-    int dot0 = addVertex(-1e7, -1e7);
-    int dot1 = addVertex(1e7, -1e7);
-    int dot2 = addVertex(0, 1e7);
+    int dot0 = addVertex(-1e4, -1e4);
+    int dot1 = addVertex(1e4, -1e4);
+    int dot2 = addVertex(0, 1e4);
+
 
     // это индекс для первой грани
     int f0 = 0;
@@ -145,6 +147,96 @@ int Delaunay::locate(const Vertex& p) {
 
 
 
+void Delaunay::finalize() {
+    if (is_finalized) return;
+
+    DCEL clean;
+
+
+    std::vector<int> old_to_new_v(dcel.vertices.size(), -1);
+    for (size_t i = 3; i < dcel.vertices.size(); ++i) {
+        old_to_new_v[i] = clean.addVertex(dcel.vertices[i].x, dcel.vertices[i].y);
+    }
+
+
+    std::vector<bool> good_face(dcel.faces.size(), true);
+    for (size_t i = 0; i < dcel.faces.size(); ++i) {
+        int e0 = dcel.faces[i].inner_comp;
+        if (e0 == -1) { good_face[i] = false; continue; }
+
+        int e1 = dcel.edges[e0].next;
+        int e2 = dcel.edges[e1].next;
+
+
+        if (dcel.edges[e0].origin < 3 ||
+            dcel.edges[e1].origin < 3 ||
+            dcel.edges[e2].origin < 3) {
+            good_face[i] = false;
+        }
+    }
+
+
+    std::vector<int> old_to_new_f(dcel.faces.size(), -1);
+    for (size_t i = 0; i < dcel.faces.size(); ++i) {
+        if (good_face[i]) {
+            old_to_new_f[i] = clean.faces.size();
+            clean.faces.push_back({-1});
+        }
+    }
+
+
+    std::vector<int> old_to_new_e(dcel.edges.size(), -1);
+    for (size_t i = 0; i < dcel.edges.size(); ++i) {
+        int f = dcel.edges[i].face;
+        if (f != -1 && good_face[f]) {
+            old_to_new_e[i] = clean.edges.size();
+            clean.edges.push_back(HalfEdge());
+        }
+    }
+
+
+    for (size_t i = 0; i < dcel.edges.size(); ++i) {
+        int new_e = old_to_new_e[i];
+        if (new_e != -1) {
+            clean.edges[new_e].origin = old_to_new_v[dcel.edges[i].origin];
+            clean.edges[new_e].face   = old_to_new_f[dcel.edges[i].face];
+            clean.edges[new_e].next   = old_to_new_e[dcel.edges[i].next];
+            clean.edges[new_e].prev   = old_to_new_e[dcel.edges[i].prev];
+
+            int twin = dcel.edges[i].twin;
+
+            if (twin != -1 && old_to_new_e[twin] != -1) {
+                clean.edges[new_e].twin = old_to_new_e[twin];
+            } else {
+                clean.edges[new_e].twin = -1;
+            }
+        }
+    }
+
+
+    for (size_t i = 0; i < dcel.faces.size(); ++i) {
+        if (good_face[i]) {
+            clean.faces[old_to_new_f[i]].inner_comp = old_to_new_e[dcel.faces[i].inner_comp];
+        }
+    }
+
+
+    for (size_t e = 0; e < clean.edges.size(); ++e) {
+        int v = clean.edges[e].origin;
+        if (clean.vertices[v].incident_edge == -1) {
+            clean.vertices[v].incident_edge = e;
+        }
+    }
+
+
+    this->dcel = clean;
+    this->is_finalized = true;
+}
+
+
+
+
+
 std::vector<int> DCEL::stun (int face_idx, double x, double y) {
     // добавляем в список вершин
     int p = addVertex(x, y);
@@ -161,6 +253,7 @@ std::vector<int> DCEL::stun (int face_idx, double x, double y) {
 
     // Переиспользуем старую грань для первого треугольника
     int g0 = face_idx;
+
     faces[g0].inner_comp = edge0;
 
 
@@ -343,7 +436,8 @@ void Delaunay::manage (int p0, int holy_edge) {
 
         manage(p0, pr);
         manage(p0, nx);
-    }}
+    }
+}
 
 
 
