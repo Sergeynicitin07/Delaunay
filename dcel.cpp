@@ -86,9 +86,9 @@ std::vector<Vertex> generateRandomDOTS(int n, int width, int height) {
 }
 
 void DCEL::bewilder () {
-    int dot0 = addVertex(-10000, -10000);
-    int dot1 = addVertex(10000, -10000);
-    int dot2 = addVertex(0, 10000);
+    int dot0 = addVertex(-1e7, -1e7);
+    int dot1 = addVertex(1e7, -1e7);
+    int dot2 = addVertex(0, 1e7);
 
     // это индекс для первой грани
     int f0 = 0;
@@ -158,9 +158,13 @@ std::vector<int> DCEL::stun (int face_idx, double x, double y) {
     int c = edges[edge2].origin; // Вершина C
     // создаем новые грани. в качестве индексов возьмем длину массива на данный момент
     // При создании новых граней g0, g1, g2 сразу фиксируем их вершины
-    int g0 = faces.size();
-    faces.push_back({edge0});
 
+    // Переиспользуем старую грань для первого треугольника
+    int g0 = face_idx;
+    faces[g0].inner_comp = edge0;
+
+
+    // Чтобы сохранить условие Эйлера добавляем только 2 новые грани
     int g1 = faces.size();
     faces.push_back({edge1});
 
@@ -228,12 +232,12 @@ void DCEL::change_edge (int edge_ab){
 
     // выпишим грани
 
+    int f_newA = edges[edge_ab].face;
+    int f_newB = edges[edge_ba].face;
 
-    int f_newA = faces.size();
-    faces.push_back({edge_ab}); // Треугольник P - D - B
+    faces[f_newA].inner_comp = edge_ab; // Треугольник P - D - B
+    faces[f_newB].inner_comp = edge_ba; // Треугольник D - P - A
 
-    int f_newB = faces.size();
-    faces.push_back({edge_ba}); // Треугольник D - P - A
 
 
 
@@ -308,7 +312,7 @@ void Delaunay::manage (int p0, int holy_edge) {
     Vertex d = dcel.vertices[d0];
 
     if (point_in_circle(b, a, d, p)) {
-        // Запоминаем текущие грани dcel, которые будут анигилированы
+        // Запоминаем текущие грани dcel, которые будут аннигилированы
         int f_a = dcel.edges[holy_edge].face;
         int f_b = dcel.edges[twinki_pinki].face;
 
@@ -339,12 +343,7 @@ void Delaunay::manage (int p0, int holy_edge) {
 
         manage(p0, pr);
         manage(p0, nx);
-    }
-
-
-
-    
-}
+    }}
 
 
 
