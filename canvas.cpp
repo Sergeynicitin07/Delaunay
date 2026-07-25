@@ -10,10 +10,7 @@ Canvas::Canvas(QWidget *parent) : QWidget(parent) {
 }
 
 void Canvas::startAnimation(int num_points) {
-
     triangulation = Delaunay();
-
-
     points_to_add = generateRandomDOTS(num_points, width(), height());
 
     std::random_device rd;
@@ -21,18 +18,13 @@ void Canvas::startAnimation(int num_points) {
     std::shuffle(points_to_add.begin(), points_to_add.end(), g);
 
     current_point_index = 0;
-
-
     timer->start(50);
 }
 
 void Canvas::addNextPoint() {
     if (current_point_index < points_to_add.size()) {
         Vertex p = points_to_add[current_point_index];
-       
-
         triangulation.turn_into(p.x, p.y);
-
         current_point_index++;
         update();
     } else {
@@ -44,15 +36,21 @@ void Canvas::paintEvent(QPaintEvent *event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.fillRect(rect(), Qt::white);
+   
     painter.setPen(QPen(Qt::blue, 1));
 
 
-    for (const auto& h_face : triangulation.history) {
-        if (h_face.isdead) continue;
+    for (const auto& face : triangulation.dcel.faces) {
+        if (face.inner_comp == -1) continue;
 
-        int iv0 = h_face.v[0];
-        int iv1 = h_face.v[1];
-        int iv2 = h_face.v[2];
+        int e0 = face.inner_comp;
+        int e1 = triangulation.dcel.edges[e0].next;
+        int e2 = triangulation.dcel.edges[e1].next;
+
+
+        int iv0 = triangulation.dcel.edges[e0].origin;
+        int iv1 = triangulation.dcel.edges[e1].origin;
+        int iv2 = triangulation.dcel.edges[e2].origin;
 
 
         if (iv0 < 3 || iv1 < 3 || iv2 < 3) {
@@ -64,11 +62,11 @@ void Canvas::paintEvent(QPaintEvent *event) {
         Vertex v1 = triangulation.dcel.vertices[iv1];
         Vertex v2 = triangulation.dcel.vertices[iv2];
 
+
         painter.drawLine(QPointF(v0.x, v0.y), QPointF(v1.x, v1.y));
         painter.drawLine(QPointF(v1.x, v1.y), QPointF(v2.x, v2.y));
         painter.drawLine(QPointF(v2.x, v2.y), QPointF(v0.x, v0.y));
     }
-
 
     painter.setPen(Qt::NoPen);
     painter.setBrush(Qt::red);
@@ -81,4 +79,3 @@ void Canvas::paintEvent(QPaintEvent *event) {
         painter.drawEllipse(QPointF(points_to_add[current_point_index-1].x, points_to_add[current_point_index-1].y), 5, 5);
     }
 }
-
