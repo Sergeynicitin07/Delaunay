@@ -152,13 +152,13 @@ void Delaunay::finalize() {
 
     DCEL clean;
 
-
+    // сохраним вершины
     std::vector<int> old_to_new_v(dcel.vertices.size(), -1);
     for (size_t i = 3; i < dcel.vertices.size(); ++i) {
         old_to_new_v[i] = clean.addVertex(dcel.vertices[i].x, dcel.vertices[i].y);
     }
 
-
+    // если грань имеет связи с большим треугольником, то производим аннигиляцию
     std::vector<bool> good_face(dcel.faces.size(), true);
     for (size_t i = 0; i < dcel.faces.size(); ++i) {
         int e0 = dcel.faces[i].inner_comp;
@@ -176,6 +176,7 @@ void Delaunay::finalize() {
     }
 
 
+    // Перенос выживших граней в новую структуру
     std::vector<int> old_to_new_f(dcel.faces.size(), -1);
     for (size_t i = 0; i < dcel.faces.size(); ++i) {
         if (good_face[i]) {
@@ -184,6 +185,7 @@ void Delaunay::finalize() {
         }
     }
 
+    // перенос полуребер
 
     std::vector<int> old_to_new_e(dcel.edges.size(), -1);
     for (size_t i = 0; i < dcel.edges.size(); ++i) {
